@@ -211,7 +211,115 @@ bvhtree.BVH = function(triangles, maxTrianglesPerNode) {
 
 
 
+/**
+* @param {Object} box the box to test the intersection on as {min:[x, y, z], max:[x, y, z]}
+*/
+bvhtree.BVH.prototype.intersectBox = function( box ) {
 
+  var nodesToIntersect = [this._rootNode];
+
+  // triangles that are in intersected nodes - they are not necessary in the box
+  var trianglesCandidates = [];
+  // short list of triangles that are actually fully into the box
+  var trianglesShortlist = [];
+
+  while (nodesToIntersect.length > 0) {
+    var node = nodesToIntersect.pop();
+
+    if( bvhtree.BVH.nodeIntersectBox( node, box ) ){
+      if( node._node0 )
+        nodesToIntersect.push( node._node0 )
+
+      if( node._node1 )
+        nodesToIntersect.push( node._node1 )
+
+        for (i = node._startIndex; i < node._endIndex; i++) {
+            trianglesCandidates.push(this._bboxArray[i*7]);
+        }
+
+    }
+  }
+
+  var a = new bvhtree.BVHVector3();
+  var b = new bvhtree.BVHVector3();
+  var c = new bvhtree.BVHVector3();
+
+  // running through all the triangle candidates
+  for (var i = 0; i < trianglesCandidates.length; i++) {
+    var triIndex = trianglesCandidates[i];
+
+    var triangle = this._trianglesArray.subarray(triIndex*9, triIndex*9 + 9);
+
+
+
+    if( bvhtree.BVH.isTriangleInsideBox( triangle, box ) ){
+      a.setFromArray(this._trianglesArray, triIndex*9);
+      b.setFromArray(this._trianglesArray, triIndex*9+3);
+      c.setFromArray(this._trianglesArray, triIndex*9+6);
+
+      trianglesShortlist.push(
+        {
+          triangle: [a.clone(), b.clone(), c.clone()],
+          triangleIndex: triIndex
+        }
+      )
+    }
+  }
+  return trianglesShortlist;
+}
+
+
+/**
+*  Check if there is an intersection between a node (using its box) and an arbitrary box. Both kind of boxes are axis aligned.
+* @param {BVHNode} node the node to test the intersection on
+* @param {Object} box the box to test the intersection on as {min:[x, y, z], max:[x, y, z]}
+* @return {Boolean} true if there is an intersection
+*/
+bvhtree.BVH.nodeIntersectBox = function( node, box ){
+  var nodeMin = [node._extentsMin.x, node._extentsMin.y, node._extentsMin.z];
+  var nodeMax = [node._extentsMax.x, node._extentsMax.y, node._extentsMax.z];
+  var boxMin = box.min;
+  var boxMax = box.max;
+
+  var intersection = [false, false, false];
+
+  // for each dimension
+  for(var i=0; i<3; i++){
+    let overlap = (boxMin[i] < nodeMax[i]) && (boxMax[i] > nodeMin[i]);
+    let inclusion = ((boxMin[i] < nodeMin[i]) && (boxMax[i] > nodeMax[i])) ||
+                    ((nodeMin[i] < boxMin[i]) && (nodeMax[i] > boxMax[i]))
+    intersection[i] = overlap || inclusion;
+  }
+
+  return (intersection[0] && intersection[1] && intersection[2]);
+}
+
+
+
+/**
+* Check if every vertices of a triangle is inside
+* @param {Float32Array} triangle array as [v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z]
+* @param {Object} box the box to test the intersection on as {min:[x, y, z], max:[x, y, z]}
+*/
+bvhtree.BVH.isTriangleInsideBox = function( triangle, box ){
+  var boxMin = box.min;
+  var boxMax = box.max;
+
+  var dimensionInside = [false, false, false];
+
+  // for each dimension
+  for(var i=0; i<3; i++){
+    var v0 = triangle[0 + i];
+    var v1 = triangle[3 + i];
+    var v2 = triangle[6 + i];
+
+    dimensionInside[i] = (v0 > boxMin[i] && v0 < boxMax[i]) &&
+                         (v1 > boxMin[i] && v1 < boxMax[i]) &&
+                         (v2 > boxMin[i] && v2 < boxMax[i]);
+  }
+
+  return dimensionInside[0] && dimensionInside[1] && dimensionInside[2];
+}
 
 
 /**
@@ -675,6 +783,7 @@ bvhtree.BVH.intersectRayTriangle = (function () {
     };
 }());
 
+
 bvhtree.BVH.setBox = function(bboxArray, pos, triangleId, minX, minY, minZ, maxX, maxY, maxZ) {
     bboxArray[pos*7] = triangleId;
     bboxArray[pos*7+1] = minX;
@@ -704,6 +813,11 @@ bvhtree.BVH.getBox = function(bboxArray, pos, outputBox) {
     outputBox.maxY = bboxArray[pos*7+5];
     outputBox.maxZ = bboxArray[pos*7+6];
 };
+
+
+
+
+
 
 
 /**
