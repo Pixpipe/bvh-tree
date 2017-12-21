@@ -185,7 +185,6 @@ bvhtree.BVH_ORIG = function(triangles, maxTrianglesPerNode) {
 
 
 bvhtree.BVH = function(triangles, maxTrianglesPerNode) {
-    console.log("EDIT03");
 
     this._trianglesArray = triangles;
     this._maxTrianglesPerNode = maxTrianglesPerNode || 10;
@@ -236,33 +235,21 @@ bvhtree.BVH.prototype.intersectBox = function( box ) {
         for (i = node._startIndex; i < node._endIndex; i++) {
             trianglesCandidates.push(this._bboxArray[i*7]);
         }
-
     }
   }
-
-  var a = new bvhtree.BVHVector3();
-  var b = new bvhtree.BVHVector3();
-  var c = new bvhtree.BVHVector3();
 
   // running through all the triangle candidates
   for (var i = 0; i < trianglesCandidates.length; i++) {
     var triIndex = trianglesCandidates[i];
-
-    var triangle = this._trianglesArray.subarray(triIndex*9, triIndex*9 + 9);
-
-
+    let indexInArray = triIndex*9;
+    var triangle = this._trianglesArray.subarray(indexInArray, indexInArray + 9);
 
     if( bvhtree.BVH.isTriangleInsideBox( triangle, box ) ){
-      a.setFromArray(this._trianglesArray, triIndex*9);
-      b.setFromArray(this._trianglesArray, triIndex*9+3);
-      c.setFromArray(this._trianglesArray, triIndex*9+6);
 
-      trianglesShortlist.push(
-        {
-          triangle: [a.clone(), b.clone(), c.clone()],
+      trianglesShortlist.push({
+          triangle: new Float32Array(triangle),
           triangleIndex: triIndex
-        }
-      )
+      });
     }
   }
   return trianglesShortlist;
@@ -322,10 +309,15 @@ bvhtree.BVH.isTriangleInsideBox = function( triangle, box ){
 }
 
 
+
+
+
+
+
 /**
  * returns a list of all the triangles in the BVH which interected a specific node.
  * We use the BVH node structure to first cull out nodes which do not intereset the ray.
- * For rays that did intersect, we test intersection of the ray with each triangle
+ * For rays that did intersect, we test intersection of the ray with each triangle.
  * @param {Point} rayOrigin the origin position of the ray.
  * @param {Point} rayDirection the direction vector of the ray.
  * @param {Boolean} backfaceCulling if 'true', only intersections with front-faces of the mesh will be performed.
@@ -377,22 +369,22 @@ bvhtree.BVH.prototype.intersectRay = function(rayOrigin, rayDirection, backfaceC
 
     for (i = 0; i < trianglesInIntersectingNodes.length; i++) {
         var triIndex = trianglesInIntersectingNodes[i];
+        var indexInArray = triIndex*9;
 
-        a.setFromArray(this._trianglesArray, triIndex*9);
-        b.setFromArray(this._trianglesArray, triIndex*9+3);
-        c.setFromArray(this._trianglesArray, triIndex*9+6);
+        a.setFromArray(this._trianglesArray, indexInArray);
+        b.setFromArray(this._trianglesArray, indexInArray+3);
+        c.setFromArray(this._trianglesArray, indexInArray+6);
 
         var intersectionPoint = bvhtree.BVH.intersectRayTriangle(a, b, c, rayOriginVec3, rayDirectionVec3, backfaceCulling);
 
         if (intersectionPoint) {
             intersectingTriangles.push({
-                triangle: [a.clone(), b.clone(), c.clone()],
+                triangle: this._trianglesArray.slice(indexInArray, indexInArray+9),
                 triangleIndex: triIndex,
                 intersectionPoint: intersectionPoint
             });
         }
     }
-
     return intersectingTriangles;
 };
 
