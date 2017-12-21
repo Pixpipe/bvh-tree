@@ -284,9 +284,10 @@ bvhtree.BVH.nodeIntersectBox = function( node, box ){
 
 
 /**
-* Check if every vertices of a triangle is inside
+* Check if every vertices of a triangle is inside the given box
 * @param {Float32Array} triangle array as [v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z]
-* @param {Object} box the box to test the intersection on as {min:[x, y, z], max:[x, y, z]}
+* @param {Object} box the box to test the intersection with as {min:[x, y, z], max:[x, y, z]}
+* @return {Boolean} true is inside, false if outside
 */
 bvhtree.BVH.isTriangleInsideBox = function( triangle, box ){
   var boxMin = box.min;
@@ -311,6 +312,92 @@ bvhtree.BVH.isTriangleInsideBox = function( triangle, box ){
 
 
 
+
+/**
+* @param {Object} sphere the sphere to test the intersection with as {center:[x, y, z], radius:Number}
+*/
+bvhtree.BVH.prototype.intersectSphere = function( sphere ) {
+  // for this sphere intersection, we buld a bounding box to this sphere,
+  // perform a box intersection and finally select only the triangles from this
+  // box that are inside the sphere.
+
+  var box = {
+    min: [
+      sphere.center[0] - sphere.radius,
+      sphere.center[1] - sphere.radius,
+      sphere.center[2] - sphere.radius
+    ],
+    max: [
+      sphere.center[0] + sphere.radius,
+      sphere.center[1] + sphere.radius,
+      sphere.center[2] + sphere.radius
+    ]
+  }
+
+  var nodesToIntersect = [this._rootNode];
+
+  // triangles that are in intersected nodes - they are not necessary in the box
+  var trianglesCandidates = [];
+  // short list of triangles that are actually fully into the box
+  var trianglesShortlist = [];
+
+  while (nodesToIntersect.length > 0) {
+    var node = nodesToIntersect.pop();
+
+    if( bvhtree.BVH.nodeIntersectBox( node, box ) ){
+      if( node._node0 )
+        nodesToIntersect.push( node._node0 )
+
+      if( node._node1 )
+        nodesToIntersect.push( node._node1 )
+
+        for (i = node._startIndex; i < node._endIndex; i++) {
+            trianglesCandidates.push(this._bboxArray[i*7]);
+        }
+    }
+  }
+
+  console.time("sphereTri");
+  // running through all the triangle candidates
+  for (var i = 0; i < trianglesCandidates.length; i++) {
+    var triIndex = trianglesCandidates[i];
+    let indexInArray = triIndex*9;
+    var triangle = this._trianglesArray.subarray(indexInArray, indexInArray + 9);
+
+    if( bvhtree.BVH.isTriangleInsideBox( triangle, box ) ){
+
+      if( bvhtree.BVH.isTriangleInsideSphere( triangle, sphere )){
+        trianglesShortlist.push({
+            triangle: new Float32Array(triangle),
+            triangleIndex: triIndex
+        });
+      }
+    }
+  }
+  console.timeEnd("sphereTri");
+  return trianglesShortlist;
+}
+
+
+/**
+* Check if every vertices of a triangle is inside the given sphere
+* @param {Float32Array} triangle array as [v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z]
+* @param {Object} sphere the sphere to test the intersection with as {center:[x, y, z], radius:Number}
+* @return {Boolean} true is inside, false if outside
+*/
+bvhtree.BVH.isTriangleInsideSphere = function( triangle, sphere ){
+  var isInside = true;
+
+  // for each point of the triangle
+  for(var i=0; i<3; i++){
+    var dx = triangle[i*3] - sphere.center[0];
+    var dy = triangle[i*3 + 1] - sphere.center[1];
+    var dz = triangle[i*3 + 2] - sphere.center[2];
+    var d = Math.sqrt( dx*dx + dy*dy + dz*dz );
+    isInside = isInside && ( d < sphere.radius );
+  }
+  return isInside;
+}
 
 
 
