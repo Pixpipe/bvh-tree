@@ -1,6 +1,11 @@
 This is a fork of [benraziel's bvh-tree](https://github.com/benraziel/bvh-tree). Due to some optimizations, some function signatures are not backward compatible. New intersection methods have been added.
 
-# bvh-tree
+To install this version:   
+```
+npm install --save bvh-tree-plus
+```
+
+# bvh-tree-plus
 
 A Bounding Volume Hierarchy data structure written in javascript, for spatial indexing of large triangle meshes.
 Enables fast intersection of rays, a AABB and a sphere with a triangle mesh.
